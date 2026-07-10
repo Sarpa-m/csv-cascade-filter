@@ -2,20 +2,11 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription,
+  DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { ExportMenu } from '@/components/ExportMenu';
 import type { SavedRow, ExportFormat } from '@/types';
@@ -32,13 +23,7 @@ interface FinalTableProps {
 }
 
 export const FinalTable: React.FC<FinalTableProps> = ({
-  headers,
-  rows,
-  onBack,
-  onDelete,
-  onClearAll,
-  onExport,
-  onCopy,
+  headers, rows, onBack, onDelete, onClearAll, onExport, onCopy,
 }) => {
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = React.useState(false);
@@ -46,74 +31,48 @@ export const FinalTable: React.FC<FinalTableProps> = ({
   const sourceIcon = (source: SavedRow['source']) => {
     switch (source) {
       case 'auto':
-        return (
-          <span title="Avanço automático">
-            <Zap className="w-3.5 h-3.5 text-blue-500" />
-          </span>
-        );
+        return <span title="Avanço automático"><Zap className="w-3.5 h-3.5 text-blue-500" /></span>;
       case 'multi-select':
-        return (
-          <span title="Multi-seleção">
-            <Users className="w-3.5 h-3.5 text-purple-500" />
-          </span>
-        );
+        return <span title="Multi-seleção"><Users className="w-3.5 h-3.5 text-purple-500" /></span>;
       default:
-        return (
-          <span title="Manual">
-            <MousePointer className="w-3.5 h-3.5 text-gray-400" />
-          </span>
-        );
+        return <span title="Manual"><MousePointer className="w-3.5 h-3.5 text-muted-foreground" /></span>;
     }
   };
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-semibold">Tabela Final</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-xl font-semibold text-foreground">Tabela Final</h2>
+          <p className="text-sm text-muted-foreground">
             {rows.length} linha(s) — colunas na ordem original do CSV
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onBack}
-            className="transition-all duration-200"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Voltar aos filtros
+          <Button variant="outline" size="sm" onClick={onBack} className="transition-all duration-200">
+            <ArrowLeft className="w-4 h-4 mr-1" />Voltar aos filtros
           </Button>
           {rows.length > 0 && (
             <>
               <ExportMenu onExport={onExport} onCopy={onCopy} />
               <Button
-                variant="outline"
-                size="sm"
+                variant="outline" size="sm"
                 onClick={() => setShowClearDialog(true)}
-                className="transition-all duration-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                className="transition-all duration-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 hover:border-red-300"
               >
-                <Eraser className="w-4 h-4 mr-1" />
-                Limpar tabela
+                <Eraser className="w-4 h-4 mr-1" />Limpar tabela
               </Button>
             </>
           )}
         </div>
       </div>
 
-      {/* Tabela */}
       {rows.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <AlertTriangle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">Nenhuma linha salva ainda.</p>
-            <Button
-              variant="outline"
-              onClick={onBack}
-              className="mt-3 transition-all duration-200"
-            >
+            <AlertTriangle className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground">Nenhuma linha salva ainda.</p>
+            <Button variant="outline" onClick={onBack} className="mt-3 transition-all duration-200">
               Voltar aos filtros
             </Button>
           </CardContent>
@@ -127,9 +86,7 @@ export const FinalTable: React.FC<FinalTableProps> = ({
                   <TableHead className="w-10">#</TableHead>
                   <TableHead className="w-10">Fonte</TableHead>
                   {headers.map((h) => (
-                    <TableHead key={h} className="whitespace-nowrap">
-                      {h}
-                    </TableHead>
+                    <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
                   ))}
                   <TableHead className="w-16 text-right">Ações</TableHead>
                 </TableRow>
@@ -137,7 +94,7 @@ export const FinalTable: React.FC<FinalTableProps> = ({
               <TableBody>
                 {rows.map((row, idx) => (
                   <TableRow key={row.id}>
-                    <TableCell className="text-xs text-gray-400">{idx + 1}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                     <TableCell>{sourceIcon(row.source)}</TableCell>
                     {headers.map((h) => (
                       <TableCell key={h} className="whitespace-nowrap max-w-[200px] truncate">
@@ -145,12 +102,9 @@ export const FinalTable: React.FC<FinalTableProps> = ({
                       </TableCell>
                     ))}
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
+                      <Button variant="ghost" size="icon"
                         onClick={() => setDeleteId(row.id)}
-                        className="h-8 w-8 text-gray-400 hover:text-red-500 transition-all duration-200"
-                      >
+                        className="h-8 w-8 text-muted-foreground hover:text-red-500 transition-all duration-200">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </TableCell>
@@ -162,33 +116,21 @@ export const FinalTable: React.FC<FinalTableProps> = ({
         </Card>
       )}
 
-      {/* Delete single row confirmation */}
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Excluir linha?</DialogTitle>
-            <DialogDescription>
-              Esta ação não pode ser desfeita. A linha será removida permanentemente da lista.
-            </DialogDescription>
+            <DialogDescription>Esta ação não pode ser desfeita.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (deleteId) onDelete(deleteId);
-                setDeleteId(null);
-              }}
-            >
+            <Button variant="outline" onClick={() => setDeleteId(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => { if (deleteId) onDelete(deleteId); setDeleteId(null); }}>
               Excluir
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Clear all confirmation */}
       <Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
         <DialogContent>
           <DialogHeader>
@@ -196,20 +138,11 @@ export const FinalTable: React.FC<FinalTableProps> = ({
             <DialogDescription>
               Todas as {rows.length} linha(s) da tabela final serão removidas.
               O CSV importado, a ordem da cascata e os travamentos serão preservados.
-              Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowClearDialog(false)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                onClearAll();
-                setShowClearDialog(false);
-              }}
-            >
+            <Button variant="outline" onClick={() => setShowClearDialog(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => { onClearAll(); setShowClearDialog(false); }}>
               Limpar {rows.length} linha(s)
             </Button>
           </DialogFooter>

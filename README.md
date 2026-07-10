@@ -2,6 +2,11 @@
 
 Aplicação React auto-contida para filtro sequencial de dados CSV. Roda direto no navegador — **sem servidor, sem backend, sem instalação**.
 
+## Download
+
+Baixe o `bundle.html` mais recente na [página de Releases](https://github.com/Sarpa-m/csv-cascade-filter/releases).
+Abra o arquivo em qualquer navegador — pronto.
+
 ## Como usar
 
 ### Opção 1: Bundle auto-contido (recomendado para uso)

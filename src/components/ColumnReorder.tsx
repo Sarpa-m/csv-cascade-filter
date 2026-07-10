@@ -32,7 +32,7 @@ export const ColumnReorder: React.FC<ColumnReorderProps> = ({
     <Card className="w-full max-w-lg mx-auto">
       <CardHeader>
         <CardTitle className="text-xl">Ordem da Cascata</CardTitle>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Arraste as colunas para definir a ordem em que os filtros serão aplicados.
           A ordem original do CSV será mantida na tabela final.
         </p>
@@ -49,14 +49,14 @@ export const ColumnReorder: React.FC<ColumnReorderProps> = ({
               onDrop={() => onDrop(idx)}
               onDragEnd={onDragEnd}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg border bg-white cursor-grab active:cursor-grabbing transition-all duration-200',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg border bg-card cursor-grab active:cursor-grabbing transition-all duration-200',
                 draggedIndex === idx && 'opacity-50 shadow-lg',
-                dragOverIndex === idx && 'border-blue-400 bg-blue-50 scale-[1.02]',
+                dragOverIndex === idx && 'border-blue-400 bg-blue-50 dark:bg-blue-950 scale-[1.02]',
               )}
             >
-              <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="flex-1 text-sm font-medium">{col}</span>
-              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                 {idx + 1}ª
               </span>
             </div>
