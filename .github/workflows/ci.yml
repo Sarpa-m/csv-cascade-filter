@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@a74853647fbd5ca70cb3d6d8f8a1bfec35eac2c2 # v4.1.0
+
+      - uses: actions/setup-node@1a918f06c68ffe7fcd39d64e6ffa31901c0984c2 # v4.4.0
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: pnpm test
+
+  bundle:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@a74853647fbd5ca70cb3d6d8f8a1bfec35eac2c2 # v4.1.0
+
+      - uses: actions/setup-node@1a918f06c68ffe7fcd39d64e6ffa31901c0984c2 # v4.4.0
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate bundle
+        run: pnpm bundle
+
+      - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: bundle
+          path: bundle.html
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        with:
+          name: bundle
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@c062b57e62ae86c12b6d9b280f00de21a3e8df3f # v2.2.0
+        with:
+          files: bundle.html
+          generate_release_notes: true
