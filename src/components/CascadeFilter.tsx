@@ -55,8 +55,8 @@ export const CascadeFilter: React.FC<CascadeFilterProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl font-semibold">Filtros em Cascata</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-xl font-semibold text-foreground">Filtros em Cascata</h2>
+          <p className="text-sm text-muted-foreground">
             {totalSavedRows > 0 && (
               <span className="inline-flex items-center gap-1">
                 <List className="w-3.5 h-3.5" />
@@ -137,17 +137,14 @@ export const CascadeFilter: React.FC<CascadeFilterProps> = ({
             const values = availableValues.get(col.name) ?? [];
 
             return (
-              <div
-                key={col.name}
-                className="flex items-start gap-3"
-              >
+              <div key={col.name} className="flex items-start gap-3">
                 {/* Indicador de ordem */}
                 <div className="flex flex-col items-center pt-1.5">
-                  <span className="text-xs font-mono text-gray-400 bg-gray-100 w-6 h-6 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-mono text-muted-foreground bg-muted w-6 h-6 rounded-full flex items-center justify-center">
                     {displayIdx + 1}
                   </span>
                   {displayIdx < sorted.length - 1 && (
-                    <div className="w-px h-6 bg-gray-200 my-1" />
+                    <div className="w-px h-6 bg-border my-1" />
                   )}
                 </div>
 
@@ -170,11 +167,10 @@ export const CascadeFilter: React.FC<CascadeFilterProps> = ({
                 <button
                   type="button"
                   onClick={() => onToggleLock(col.name)}
-                  className={`
-                    mt-7 p-1.5 rounded-lg border transition-all duration-200
+                  className={`mt-7 p-1.5 rounded-lg border transition-all duration-200
                     ${col.locked
-                      ? 'bg-amber-50 border-amber-300 text-amber-600 hover:bg-amber-100'
-                      : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                      ? 'bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900'
+                      : 'bg-card border-border text-muted-foreground hover:border-input hover:text-foreground'
                     }
                   `}
                   title={col.locked ? 'Destravar coluna' : 'Travar coluna'}

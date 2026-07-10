@@ -4,6 +4,7 @@ import { CsvImporter } from '@/components/CsvImporter';
 import { ColumnReorder } from '@/components/ColumnReorder';
 import { CascadeFilter } from '@/components/CascadeFilter';
 import { FinalTable } from '@/components/FinalTable';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useCsvParser } from '@/hooks/useCsvParser';
 import { useCascadeFilters } from '@/hooks/useCascadeFilters';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
@@ -216,15 +217,15 @@ function App() {
   // --- Render ---
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Toaster position="top-right" richColors closeButton />
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <header className="bg-card border-b border-border sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Filtro CSV em Cascata</h1>
-            <p className="text-xs text-gray-500">
+            <h1 className="text-lg font-bold text-foreground">Filtro CSV em Cascata</h1>
+            <p className="text-xs text-muted-foreground">
               {stage === 'import' && 'Importe um arquivo CSV para começar'}
               {stage === 'reorder' && 'Defina a ordem dos filtros'}
               {stage === 'filter' && 'Preencha os filtros sequencialmente'}
@@ -232,12 +233,15 @@ function App() {
             </p>
           </div>
 
-          <span className="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
-            {stage === 'import' && '1. Importar'}
-            {stage === 'reorder' && '2. Reordenar'}
-            {stage === 'filter' && '3. Filtrar'}
-            {stage === 'review' && '4. Revisar'}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+              {stage === 'import' && '1. Importar'}
+              {stage === 'reorder' && '2. Reordenar'}
+              {stage === 'filter' && '3. Filtrar'}
+              {stage === 'review' && '4. Revisar'}
+            </span>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
