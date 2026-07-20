@@ -46,6 +46,31 @@ function App() {
   const dragDrop = useDragAndDrop(appState.csvHeaders, () => {});
 
   const autoSubmitLock = React.useRef(false);
+  const cascadeInitialized = React.useRef(false);
+
+  // Inicializa o hook de cascata com os dados restaurados do localStorage.
+  // Sem isso, reorderColumns opera sobre estado vazio e gera colunas undefined.
+  React.useEffect(() => {
+    if (!cascadeInitialized.current && appState.csvHeaders.length > 0) {
+      cascade.initColumns(
+        appState.csvHeaders,
+        appState.csvData,
+        appState.cascadeColumns.length > 0 ? appState.cascadeColumns : undefined,
+      );
+      cascadeInitialized.current = true;
+    }
+  }, [appState.csvHeaders, appState.csvData, appState.cascadeColumns, cascade]);
+
+  // Sincroniza as colunas da cascata de volta para o appState (persistência).
+  // Assim, ao fechar e reabrir, as seleções e travamentos são preservados.
+  React.useEffect(() => {
+    if (cascade.columns.length > 0) {
+      setAppState((prev) => ({
+        ...prev,
+        cascadeColumns: cascade.columns,
+      }));
+    }
+  }, [cascade.columns, setAppState]);
 
   // --- Handlers ---
 

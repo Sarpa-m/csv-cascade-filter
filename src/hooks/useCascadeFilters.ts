@@ -20,8 +20,13 @@ interface UseCascadeFiltersReturn {
   autoFilledColumns: Set<string>;
   /** true quando uma seleção resulta em 0 combinações */
   deadEnd: boolean;
-  /** Inicializa/reseta as colunas a partir dos headers do CSV */
-  initColumns: (headers: string[], data: CsvRow[]) => void;
+  /** Inicializa/reseta as colunas a partir dos headers do CSV.
+   * Aceita opcionalmente colunas salvas de uma sessão anterior. */
+  initColumns: (
+    headers: string[],
+    data: CsvRow[],
+    savedColumns?: CascadeColumn[],
+  ) => void;
   /** Atualiza a ordem das colunas (drag-and-drop) */
   reorderColumns: (newOrder: string[]) => void;
   /** Confirma a seleção de uma coluna */
@@ -43,27 +48,62 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
   const [allData, setAllData] = useState<CsvRow[]>([]);
   const [autoFilledColumns, setAutoFilledColumns] = useState<Set<string>>(new Set());
 
-  const initColumns = useCallback((headers: string[], data: CsvRow[]) => {
-    const cols: CascadeColumn[] = headers.map((name, i) => ({
-      name,
-      originalIndex: i,
-      cascadeIndex: i,
-      locked: false,
-      selectedValues: [],
-      autoFilled: false,
-      multiSelectEnabled: false,
-    }));
-    setColumns(cols);
-    setAllData(data);
-    setAutoFilledColumns(new Set());
-  }, []);
+  const initColumns = useCallback(
+    (headers: string[], data: CsvRow[], savedColumns?: CascadeColumn[]) => {
+      // Se houver colunas salvas de uma sessão anterior, restaura-as
+      // preservando locks, selectedValues, multiSelectEnabled, etc.
+      if (savedColumns && savedColumns.length > 0) {
+        setColumns(savedColumns);
+      } else {
+        const cols: CascadeColumn[] = headers.map((name, i) => ({
+          name,
+          originalIndex: i,
+          cascadeIndex: i,
+          locked: false,
+          selectedValues: [],
+          autoFilled: false,
+          multiSelectEnabled: false,
+        }));
+        setColumns(cols);
+      }
+      setAllData(data);
+      setAutoFilledColumns(new Set());
+    },
+    [],
+  );
 
   const reorderColumns = useCallback((newOrder: string[]) => {
     setColumns((prev) => {
+      // Se o estado anterior está vazio (ex.: restaurando de localStorage sem
+      // initColumns prévio), cria colunas frescas a partir da nova ordem.
+      if (prev.length === 0) {
+        return newOrder.map((name, i) => ({
+          name,
+          originalIndex: i,
+          cascadeIndex: i,
+          locked: false,
+          selectedValues: [],
+          autoFilled: false,
+          multiSelectEnabled: false,
+        }));
+      }
+
       const nameToCol = new Map(prev.map((c) => [c.name, c]));
       return newOrder.map((name, i) => {
         const col = nameToCol.get(name);
-        if (!col) return prev[i];
+        // Se a coluna não existir no estado anterior (nunca deveria acontecer,
+        // mas defensivamente), cria uma nova em vez de retornar undefined.
+        if (!col) {
+          return {
+            name,
+            originalIndex: i,
+            cascadeIndex: i,
+            locked: false,
+            selectedValues: [],
+            autoFilled: false,
+            multiSelectEnabled: false,
+          };
+        }
         return {
           ...col,
           cascadeIndex: i,
