@@ -10,20 +10,22 @@ import {
 } from '@/components/ui/dialog';
 import { ExportMenu } from '@/components/ExportMenu';
 import type { SavedRow, ExportFormat } from '@/types';
-import { ArrowLeft, Trash2, Users, Zap, MousePointer, AlertTriangle, Eraser } from 'lucide-react';
+import { ArrowLeft, Trash2, Users, Zap, MousePointer, AlertTriangle, Eraser, Clock } from 'lucide-react';
 
 interface FinalTableProps {
   headers: string[];
   rows: SavedRow[];
+  historyCount: number;
   onBack: () => void;
   onDelete: (id: string) => void;
   onClearAll: () => void;
+  onOpenHistory: () => void;
   onExport: (format: ExportFormat) => void;
   onCopy: () => void;
 }
 
 export const FinalTable: React.FC<FinalTableProps> = ({
-  headers, rows, onBack, onDelete, onClearAll, onExport, onCopy,
+  headers, rows, historyCount, onBack, onDelete, onClearAll, onOpenHistory, onExport, onCopy,
 }) => {
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = React.useState(false);
@@ -53,16 +55,28 @@ export const FinalTable: React.FC<FinalTableProps> = ({
             <ArrowLeft className="w-4 h-4 mr-1" />Voltar aos filtros
           </Button>
           {rows.length > 0 && (
-            <>
-              <ExportMenu onExport={onExport} onCopy={onCopy} />
-              <Button
-                variant="outline" size="sm"
-                onClick={() => setShowClearDialog(true)}
-                className="transition-all duration-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 hover:border-red-300"
-              >
-                <Eraser className="w-4 h-4 mr-1" />Limpar tabela
-              </Button>
-            </>
+            <ExportMenu onExport={onExport} onCopy={onCopy} />
+          )}
+          <Button
+            variant="outline" size="sm"
+            onClick={onOpenHistory}
+            className="transition-all duration-200"
+          >
+            <Clock className="w-4 h-4 mr-1" />Histórico
+            {historyCount > 0 && (
+              <span className="ml-1.5 bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full text-xs font-mono">
+                {historyCount}
+              </span>
+            )}
+          </Button>
+          {rows.length > 0 && (
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setShowClearDialog(true)}
+              className="transition-all duration-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 hover:border-red-300"
+            >
+              <Eraser className="w-4 h-4 mr-1" />Limpar tabela
+            </Button>
           )}
         </div>
       </div>
@@ -136,7 +150,8 @@ export const FinalTable: React.FC<FinalTableProps> = ({
           <DialogHeader>
             <DialogTitle>Limpar tabela?</DialogTitle>
             <DialogDescription>
-              Todas as {rows.length} linha(s) da tabela final serão removidas.
+              Todas as {rows.length} linha(s) serão movidas para o histórico.
+              Você poderá restaurá-las depois pelo botão "Histórico".
               O CSV importado, a ordem da cascata e os travamentos serão preservados.
             </DialogDescription>
           </DialogHeader>

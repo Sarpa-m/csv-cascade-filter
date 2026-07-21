@@ -37,12 +37,23 @@ export interface SavedRow {
   createdAt: string;
 }
 
+/** Entrada do histórico de tabelas */
+export interface TableHistory {
+  id: string;
+  name: string;
+  rows: SavedRow[];
+  createdAt: string;
+  rowCount: number; // desnormalizado para exibição rápida
+}
+
 /** Estado completo da aplicação (persistido em localStorage) */
 export interface AppState {
   csvHeaders: string[];
   csvData: CsvRow[];
   cascadeColumns: CascadeColumn[];
   savedRows: SavedRow[];
+  tableHistory: TableHistory[];
+  currentListName: string;
   /** Colunas atualmente sendo preenchidas (cascata parcial não finalizada) */
   partialSelection: CascadeColumn[] | null;
 }
