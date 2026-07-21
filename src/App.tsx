@@ -1,9 +1,17 @@
 import React, { useCallback } from 'react';
 import { Toaster, toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog, DialogContent, DialogDescription,
+  DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { CsvImporter } from '@/components/CsvImporter';
 import { ColumnReorder } from '@/components/ColumnReorder';
 import { CascadeFilter } from '@/components/CascadeFilter';
 import { FinalTable } from '@/components/FinalTable';
+import { HistoryPanel } from '@/components/HistoryPanel';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useCsvParser } from '@/hooks/useCsvParser';
 import { useCascadeFilters } from '@/hooks/useCascadeFilters';
@@ -11,7 +19,7 @@ import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { allColumnsFilled } from '@/lib/cascadeLogic';
 import { exportAsCsv, exportAsTsv, exportAsXlsx, copyTsvToClipboard } from '@/lib/exporters';
-import type { AppState, SavedRow, ExportFormat } from '@/types';
+import type { AppState, SavedRow, ExportFormat, TableHistory } from '@/types';
 
 type AppStage = 'import' | 'reorder' | 'filter' | 'review';
 
@@ -28,6 +36,8 @@ const DEFAULT_STATE: AppState = {
   csvData: [],
   cascadeColumns: [],
   savedRows: [],
+  tableHistory: [],
+  currentListName: '',
   partialSelection: null,
 };
 
@@ -40,6 +50,9 @@ function App() {
         : 'reorder'
       : 'import',
   );
+  const [historyDialogOpen, setHistoryDialogOpen] = React.useState(false);
+  const [showNameDialog, setShowNameDialog] = React.useState(false);
+  const [pendingListName, setPendingListName] = React.useState('');
 
   const { isParsing, error: parseError } = useCsvParser();
   const cascade = useCascadeFilters();
@@ -95,13 +108,20 @@ function App() {
   );
 
   const handleReorderContinue = useCallback((orderedHeaders: string[]) => {
-    // Reordenar as colunas da cascata com a ordem escolhida
     cascade.reorderColumns(orderedHeaders);
+    const defaultName = `Lista ${appState.tableHistory.length + 1}`;
+    setPendingListName(defaultName);
+    setShowNameDialog(true);
+  }, [cascade, appState.tableHistory.length]);
+
+  const handleConfirmListName = useCallback(() => {
+    const name = pendingListName.trim() || 'Sem nome';
+    setAppState((prev) => ({ ...prev, currentListName: name }));
+    setShowNameDialog(false);
     setStage('filter');
     autoSubmitLock.current = false;
-    // resetForNewRow roda no próximo tick para garantir que reorderColumns já aplicou
     setTimeout(() => cascade.resetForNewRow(), 0);
-  }, [cascade]);
+  }, [pendingListName, setAppState, cascade]);
 
   const handleConfirmSelection = useCallback(
     (columnName: string, values: string[]) => {
@@ -222,12 +242,98 @@ function App() {
   );
 
   const handleClearAllRows = useCallback(() => {
+    setAppState((prev) => {
+      if (prev.savedRows.length === 0) return prev;
+
+      const name = prev.currentListName || 'Sem nome';
+
+      const entry: TableHistory = {
+        id: crypto.randomUUID(),
+        name,
+        rows: prev.savedRows,
+        createdAt: new Date().toISOString(),
+        rowCount: prev.savedRows.length,
+      };
+
+      return {
+        ...prev,
+        savedRows: [],
+        currentListName: '',
+        tableHistory: [...prev.tableHistory, entry],
+        partialSelection: null,
+      };
+    });
+    toast.success('Tabela limpa. Dados movidos para o histórico.');
+  }, [setAppState]);
+
+  const handleBackToFilters = useCallback(() => {
+    if (!appState.currentListName) {
+      const defaultName = `Lista ${appState.tableHistory.length + 1}`;
+      setPendingListName(defaultName);
+      setShowNameDialog(true);
+    } else {
+      setStage('filter');
+    }
+  }, [appState.currentListName, appState.tableHistory.length]);
+
+  const handleRestoreHistory = useCallback((id: string) => {
+    setAppState((prev) => {
+      const entry = prev.tableHistory.find((e) => e.id === id);
+      if (!entry) return prev;
+      return {
+        ...prev,
+        savedRows: entry.rows,
+        tableHistory: prev.tableHistory.filter((e) => e.id !== id),
+      };
+    });
+    setHistoryDialogOpen(false);
+    toast.success('Histórico restaurado com sucesso.');
+  }, [setAppState]);
+
+  const handleMergeHistory = useCallback((id: string) => {
+    setAppState((prev) => {
+      const entry = prev.tableHistory.find((e) => e.id === id);
+      if (!entry) return prev;
+
+      const existingValues = new Set(
+        prev.savedRows.map((r) => JSON.stringify(r.values)),
+      );
+      const newRows = entry.rows.filter(
+        (r) => !existingValues.has(JSON.stringify(r.values)),
+      );
+
+      if (newRows.length === 0) {
+        toast.info('Nenhuma linha nova para mesclar — todas já existem na tabela.');
+        return {
+          ...prev,
+          tableHistory: prev.tableHistory.filter((e) => e.id !== id),
+        };
+      }
+
+      return {
+        ...prev,
+        savedRows: [...prev.savedRows, ...newRows],
+        tableHistory: prev.tableHistory.filter((e) => e.id !== id),
+      };
+    });
+    setHistoryDialogOpen(false);
+    toast.success('Listas mescladas com sucesso.');
+  }, [setAppState]);
+
+  const handleDeleteHistoryEntry = useCallback((id: string) => {
     setAppState((prev) => ({
       ...prev,
-      savedRows: [],
-      partialSelection: null,
+      tableHistory: prev.tableHistory.filter((e) => e.id !== id),
     }));
-    toast.success('Tabela limpa. CSV e configurações preservados.');
+    toast.success('Entrada do histórico removida.');
+  }, [setAppState]);
+
+  const handleClearAllHistory = useCallback(() => {
+    setAppState((prev) => ({
+      ...prev,
+      tableHistory: [],
+    }));
+    toast.info('Todo o histórico foi limpo.');
   }, [setAppState]);
 
   const handleCopy = useCallback(async () => {
@@ -259,6 +365,11 @@ function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            {appState.currentListName && (stage === 'filter' || stage === 'review') && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium truncate max-w-[200px]" title={appState.currentListName}>
+                {appState.currentListName}
+              </span>
+            )}
             <span className="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
               {stage === 'import' && '1. Importar'}
               {stage === 'reorder' && '2. Reordenar'}
@@ -272,6 +383,33 @@ function App() {
 
       {/* Main content */}
       <main className="max-w-5xl mx-auto px-4 py-8">
+        {/* Dialog: nome da lista antes de começar os filtros */}
+        <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nome da lista</DialogTitle>
+              <DialogDescription>
+                Dê um nome para esta lista de filtros. Ele será usado ao salvar no histórico.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="list-name">Nome</Label>
+              <Input
+                id="list-name"
+                value={pendingListName}
+                onChange={(e) => setPendingListName(e.target.value)}
+                placeholder="Ex: Dados de SP, Seleção RH, etc."
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmListName(); }}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowNameDialog(false)}>Cancelar</Button>
+              <Button onClick={handleConfirmListName}>Começar filtros</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {stage === 'import' && (
           <CsvImporter
             onImport={handleImport}
@@ -317,13 +455,26 @@ function App() {
           <FinalTable
             headers={appState.csvHeaders}
             rows={appState.savedRows}
-            onBack={() => setStage('filter')}
+            historyCount={appState.tableHistory.length}
+            onBack={handleBackToFilters}
             onDelete={handleDeleteRow}
             onClearAll={handleClearAllRows}
+            onOpenHistory={() => setHistoryDialogOpen(true)}
             onExport={handleExport}
             onCopy={handleCopy}
           />
         )}
+
+        <HistoryPanel
+          open={historyDialogOpen}
+          onOpenChange={setHistoryDialogOpen}
+          history={appState.tableHistory}
+          currentRowCount={appState.savedRows.length}
+          onRestore={handleRestoreHistory}
+          onMerge={handleMergeHistory}
+          onDeleteEntry={handleDeleteHistoryEntry}
+          onClearAllHistory={handleClearAllHistory}
+        />
       </main>
     </div>
   );
