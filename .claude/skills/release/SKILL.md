@@ -2,10 +2,10 @@
 name: release
 description: >
   Guia para criar releases do Filtro CSV em Cascata. Cobre versionamento semântico,
-  nomenclatura de tags, geração do bundle.html, notas de release e upload de artefatos.
+  nomenclatura de tags, geração do csv-cascade-filter.html, notas de release e upload de artefatos.
   Use esta skill sempre que o usuário pedir para lançar uma nova versão, criar um release,
   gerar o bundle, publicar no GitHub Releases, ou mencionar "release", "versão", "tag",
-  "bundle.html", "lançar", "publicar".
+  "csv-cascade-filter.html", "lançar", "publicar".
 ---
 
 # Release — Processo de lançamento de versão
@@ -16,7 +16,7 @@ Toda release deve incluir:
 
 1. **Tag Git** seguindo SemVer (`vMAJOR.MINOR.PATCH`)
 2. **Release notes** em português com seções `✨ Novidades` e `🐛 Correções`
-3. **Arquivo compilado** `bundle.html` anexado como artefato
+3. **Arquivo compilado** `csv-cascade-filter.html` anexado como artefato
 4. **PR title** seguindo Conventional Commits (`feat:`, `fix:`, etc.) para o merge `develop → main`
 
 ---
@@ -58,7 +58,7 @@ git checkout main
 git pull origin main
 ```
 
-### 3. Gerar o bundle.html
+### 3. Gerar o csv-cascade-filter.html
 
 O arquivo auto-contido é o artefato principal do projeto — permite abrir o app direto no navegador, sem servidor.
 
@@ -66,7 +66,7 @@ O arquivo auto-contido é o artefato principal do projeto — permite abrir o ap
 bash scripts/bundle.sh
 ```
 
-O output é `bundle.html` na raiz do projeto. **Nunca lance uma release sem este arquivo.**
+O output é `csv-cascade-filter.html` na raiz do projeto. **Nunca lance uma release sem este arquivo.**
 
 ### 4. Criar a tag
 
@@ -95,10 +95,10 @@ gh release create v<versão> \
 ### 🐛 Correções
 - fix: descrição
 - fix: descrição' \
-  bundle.html
+  csv-cascade-filter.html
 ```
 
-O `bundle.html` no final do comando faz o upload automático como artefato da release.
+O `csv-cascade-filter.html` no final do comando faz o upload automático como artefato da release.
 
 ---
 
@@ -110,7 +110,7 @@ git checkout main && git pull origin main
 
 # 2. Bundle
 bash scripts/bundle.sh
-# ✅ Bundle complete! Output: bundle.html (480K)
+# ✅ Bundle complete! Output: csv-cascade-filter.html (480K)
 
 # 3. Tag
 git tag v1.3.0 && git push origin v1.3.0
@@ -138,7 +138,7 @@ gh release create v1.3.0 \
 
 ### 🐛 Correções
 - Crash ao carregar estado sem `tableHistory`' \
-  bundle.html
+  csv-cascade-filter.html
 ```
 
 
@@ -146,9 +146,9 @@ gh release create v1.3.0 \
 
 - [ ] `APP_VERSION` em `src/lib/version.ts` atualizado manualmente
 - [ ] PR `develop → main` mergeado
-- [ ] `bundle.html` gerado com sucesso (`ls -lh bundle.html`)
+- [ ] `csv-cascade-filter.html` gerado com sucesso (`ls -lh csv-cascade-filter.html`)
 - [ ] Tag Git criada e pushada
-- [ ] `bundle.html` anexado no release
+- [ ] `csv-cascade-filter.html` anexado no release
 - [ ] Release notes com seções `## ✨ Novidades` e `## 🐛 Correções`
 - [ ] Link do release funciona (`gh release view v<versão>`)
 
