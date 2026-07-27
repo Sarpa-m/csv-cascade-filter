@@ -57,7 +57,7 @@ function App() {
 
   const { isParsing, error: parseError } = useCsvParser();
   const cascade = useCascadeFilters();
-  const dragDrop = useDragAndDrop(appState.csvHeaders, () => {});
+  const dragDrop = useDragAndDrop(appState.csvHeaders, () => { });
 
   const autoSubmitLock = React.useRef(false);
   const cascadeInitialized = React.useRef(false);
@@ -566,9 +566,13 @@ function App() {
             </a>{' '}
             &copy; {new Date().getFullYear()}
             {' '}&middot;{' '}
-            <span className="font-mono">v{APP_VERSION}</span>
-          </p>
-          <div className="flex items-center gap-3">
+            <span className="font-mono">
+              <a href="https://github.com/Sarpa-m/csv-cascade-filter/releases/" target="_blank" rel="noopener noreferrer">
+                v{APP_VERSION}</a>
+            </span>
+          </p> 
+       
+         {/*  <div className="flex items-center gap-3">
             <a
               href="https://github.com/Sarpa-m/csv-cascade-filter"
               target="_blank"
@@ -579,16 +583,16 @@ function App() {
             </a>
             <span className="text-muted-foreground/40">|</span>
             <p>
-            <a
-              href="https://creativecommons.org/licenses/by-sa/4.0/deed.pt-br"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground transition-colors"
-            >
-              CC BY-SA 4.0
-            </a>
-          </p>
-        </div>
+              <a
+                href="https://creativecommons.org/licenses/by-sa/4.0/deed.pt-br"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+              >
+                CC BY-SA 4.0
+              </a>
+            </p>
+          </div> */}
         </div>
       </footer>
     </div>
