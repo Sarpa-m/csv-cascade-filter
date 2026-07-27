@@ -1,6 +1,15 @@
+import { INJECTED_VERSION } from './version.generated';
 
-/** Versão atual da aplicação — injetada pelo Vite a partir da tag git mais recente */
-export const APP_VERSION: string = import.meta.env.VITE_APP_VERSION;
+/**
+ * Versão atual da aplicação.
+ *
+ * - Vite (dev/build): `define` em vite.config.ts substitui `import.meta.env.VITE_APP_VERSION`
+ *   pelo valor da tag git (`git describe --tags`)
+ * - Parcel (bundle.sh): gera `version.generated.ts` antes do build
+ * - Fallback: `'0.0.0'`
+ */
+export const APP_VERSION: string =
+  import.meta.env.VITE_APP_VERSION ?? INJECTED_VERSION ?? '0.0.0';
 
 /** URL da API do GitHub para consultar a última release */
 const GITHUB_API_URL = 'https://api.github.com/repos/Sarpa-m/csv-cascade-filter/releases/latest';
