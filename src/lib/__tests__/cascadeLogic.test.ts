@@ -26,6 +26,7 @@ function makeCol(
     locked,
     autoFilled,
     multiSelectEnabled,
+    visible: true,
   };
 }
 
@@ -227,5 +228,70 @@ describe('hasNoCombinations', () => {
       makeCol('Setor', 1, 1, ['Financeiro']),
     ];
     expect(hasNoCombinations(sampleData, cols, 1)).toBe(true);
+  });
+});
+
+describe('hidden columns (visible: false)', () => {
+  it('filterDataBySelections skips hidden columns', () => {
+    const cols = [
+      makeCol('Cidade', 0, 0, ['SP']),
+      { ...makeCol('Setor', 1, 1, ['TI']), visible: false },
+    ];
+    // Hidden Setor=TI should NOT filter — returns all SP rows (Alice, Bob)
+    const result = filterDataBySelections(sampleData, cols, 1);
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.Nome).sort()).toEqual(['Alice', 'Bob']);
+  });
+
+  it('allColumnsFilled ignores hidden columns', () => {
+    const cols = [
+      makeCol('A', 0, 0, ['1']),
+      { ...makeCol('B', 1, 1), visible: false },
+      { ...makeCol('C', 2, 2), visible: false },
+    ];
+    // Only column A is visible and it's filled → should be true
+    expect(allColumnsFilled(cols)).toBe(true);
+  });
+
+  it('allColumnsFilled returns false when a visible column is empty', () => {
+    const cols = [
+      makeCol('A', 0, 0, ['1']),
+      { ...makeCol('B', 1, 1), visible: false },
+      makeCol('C', 2, 2), // visible but empty
+    ];
+    expect(allColumnsFilled(cols)).toBe(false);
+  });
+
+  it('computeAutoAdvance skips hidden columns', () => {
+    const data: CsvRow[] = [{ A: 'X', B: 'Y', C: 'Z' }];
+    const cols = [
+      makeCol('A', 0, 0, ['X']),
+      { ...makeCol('B', 1, 1), visible: false },
+      makeCol('C', 2, 2),
+    ];
+    // B is hidden, so C should be checked for auto-advance
+    const result = computeAutoAdvance(data, cols, 1);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({ columnName: 'C', value: 'Z' });
+  });
+
+  it('all hidden columns means allColumnsFilled returns true', () => {
+    const cols = [
+      { ...makeCol('A', 0, 0), visible: false },
+      { ...makeCol('B', 1, 1), visible: false },
+    ];
+    expect(allColumnsFilled(cols)).toBe(true);
+  });
+
+  it('hidden columns still appear in matching rows (values preserved for final table)', () => {
+    const cols = [
+      makeCol('Cidade', 0, 0, ['SP']),
+      { ...makeCol('Setor', 1, 1), visible: false },
+    ];
+    const result = getMatchingRows(sampleData, cols);
+    // Setor is hidden so doesn't filter, returns all SP rows
+    expect(result).toHaveLength(2);
+    // Both rows still have Setor values (preserved for final table)
+    expect(result.every((r) => 'Setor' in r)).toBe(true);
   });
 });

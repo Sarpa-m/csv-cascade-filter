@@ -41,6 +41,7 @@ export function filterDataBySelections(
   return data.filter((row) => {
     for (const col of sorted) {
       if (col.cascadeIndex > upToIndex) break;
+      if (!col.visible) continue; // colunas ocultas não participam do filtro
       if (col.selectedValues.length === 0) continue;
       // OU dentro da coluna: o valor da linha deve estar entre os selecionados
       if (!col.selectedValues.includes(row[col.name])) {
@@ -81,19 +82,20 @@ export function computeAutoAdvance(
   const sorted = [...columns].sort((a, b) => a.cascadeIndex - b.cascadeIndex);
 
   let filtered = data;
-  // Aplica filtros de todas as colunas já preenchidas
+  // Aplica filtros de todas as colunas já preenchidas (visíveis apenas)
   for (const col of sorted) {
     if (col.cascadeIndex < startFromIndex) {
-      if (col.selectedValues.length > 0) {
+      if (col.visible && col.selectedValues.length > 0) {
         filtered = filtered.filter((r) => col.selectedValues.includes(r[col.name]));
       }
     }
   }
 
-  // Avança sequencialmente, verificando se cada próxima coluna tem 1 única opção
+  // Avança sequencialmente, verificando se cada próxima coluna visível tem 1 única opção
   let currentData = filtered;
   for (const col of sorted) {
     if (col.cascadeIndex < startFromIndex) continue;
+    if (!col.visible) continue; // colunas ocultas não disparam avanço automático
 
     const unique = getUniqueValues(currentData, col.name);
     if (unique.length === 1) {
@@ -112,7 +114,9 @@ export function computeAutoAdvance(
  * Verifica se todas as colunas estão preenchidas (pelo menos 1 valor selecionado).
  */
 export function allColumnsFilled(columns: CascadeColumn[]): boolean {
-  return columns.every((col) => col.selectedValues.length > 0);
+  return columns
+    .filter((col) => col.visible)
+    .every((col) => col.selectedValues.length > 0);
 }
 
 /**
@@ -123,6 +127,8 @@ export function hasNoCombinations(
   columns: CascadeColumn[],
   upToIndex: number,
 ): boolean {
+  const visibleCols = columns.filter((c) => c.visible);
+  if (visibleCols.length === 0) return false;
   const filtered = filterDataBySelections(data, columns, upToIndex);
   return filtered.length === 0;
 }

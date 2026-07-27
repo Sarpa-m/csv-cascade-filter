@@ -27,6 +27,7 @@ export interface CascadeColumn {
   selectedValues: string[];
   autoFilled: boolean; // true quando preenchido pelo avanço automático
   multiSelectEnabled: boolean; // toggle para permitir múltiplos valores (default: false)
+  visible: boolean; // coluna aparece nos filtros? false = oculta da cascata mas mantém na tabela final
 }
 
 /** Linha salva na tabela final */

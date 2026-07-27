@@ -29,6 +29,8 @@ interface UseCascadeFiltersReturn {
   ) => void;
   /** Atualiza a ordem das colunas (drag-and-drop) */
   reorderColumns: (newOrder: string[]) => void;
+  /** Atualiza ordem e visibilidade preservando seleções (voltar do filtro p/ reorder) */
+  updateColumnOrder: (newOrder: string[], hiddenColumns?: Set<string>) => void;
   /** Confirma a seleção de uma coluna */
   confirmSelection: (columnName: string, values: string[]) => void;
   /** Alterna o travamento de uma coluna */
@@ -53,7 +55,9 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
       // Se houver colunas salvas de uma sessão anterior, restaura-as
       // preservando locks, selectedValues, multiSelectEnabled, etc.
       if (savedColumns && savedColumns.length > 0) {
-        setColumns(savedColumns);
+        // Garante que colunas restauradas tenham o campo `visible` (pode faltar
+        // em dados salvos de versões anteriores).
+        setColumns(savedColumns.map((c) => ({ ...c, visible: c.visible ?? true })));
       } else {
         const cols: CascadeColumn[] = headers.map((name, i) => ({
           name,
@@ -63,6 +67,7 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
           selectedValues: [],
           autoFilled: false,
           multiSelectEnabled: false,
+          visible: true,
         }));
         setColumns(cols);
       }
@@ -85,6 +90,7 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
           selectedValues: [],
           autoFilled: false,
           multiSelectEnabled: false,
+          visible: true,
         }));
       }
 
@@ -102,6 +108,7 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
             selectedValues: [],
             autoFilled: false,
             multiSelectEnabled: false,
+            visible: true,
           };
         }
         return {
@@ -114,6 +121,30 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
     });
     setAutoFilledColumns(new Set());
   }, []);
+
+  /** Atualiza ordem e visibilidade preservando seleções e locks.
+   *  Usado quando o usuário volta do filtro para a tela de reordenação. */
+  const updateColumnOrder = useCallback(
+    (newOrder: string[], hiddenColumns?: Set<string>) => {
+      setColumns((prev) => {
+        const nameToCol = new Map(prev.map((c) => [c.name, c]));
+        return newOrder.map((name, i) => {
+          const existing = nameToCol.get(name);
+          return {
+            name,
+            originalIndex: existing?.originalIndex ?? i,
+            cascadeIndex: i,
+            locked: existing?.locked ?? false,
+            selectedValues: existing?.selectedValues ?? [],
+            autoFilled: existing?.autoFilled ?? false,
+            multiSelectEnabled: existing?.multiSelectEnabled ?? false,
+            visible: hiddenColumns ? !hiddenColumns.has(name) : (existing?.visible ?? true),
+          };
+        });
+      });
+    },
+    [],
+  );
 
   const confirmSelection = useCallback(
     (columnName: string, values: string[]) => {
@@ -246,8 +277,13 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
     const sorted = [...columns].sort((a, b) => a.cascadeIndex - b.cascadeIndex);
 
     for (const col of sorted) {
-      // Aplica filtros das colunas anteriores
-      const prevCols = sorted.filter((c) => c.cascadeIndex < col.cascadeIndex);
+      // Colunas ocultas não precisam de valores disponíveis (não são exibidas)
+      if (!col.visible) {
+        map.set(col.name, []);
+        continue;
+      }
+      // Aplica filtros das colunas anteriores (apenas visíveis)
+      const prevCols = sorted.filter((c) => c.cascadeIndex < col.cascadeIndex && c.visible);
       let relevantData = allData;
       for (const pc of prevCols) {
         if (pc.selectedValues.length > 0) {
@@ -279,7 +315,7 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
   // Primeira coluna não preenchida
   const firstUnfilledIndex = useMemo(() => {
     const sorted = [...columns].sort((a, b) => a.cascadeIndex - b.cascadeIndex);
-    const first = sorted.find((col) => col.selectedValues.length === 0);
+    const first = sorted.find((col) => col.visible && col.selectedValues.length === 0);
     return first ? first.cascadeIndex : columns.length;
   }, [columns]);
 
@@ -292,6 +328,7 @@ export function useCascadeFilters(): UseCascadeFiltersReturn {
     deadEnd,
     initColumns,
     reorderColumns,
+    updateColumnOrder,
     confirmSelection,
     toggleLock,
     setAllLocks,
