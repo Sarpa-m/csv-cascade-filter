@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { ExportMenu } from '@/components/ExportMenu';
 import { toast } from 'sonner';
-import type { ExportFormat } from '@/types';
+import type { SavedRow, ExportFormat } from '@/types';
 import { ArrowLeft, Trash2, AlertTriangle, Eraser, Clock } from 'lucide-react';
 
 interface FinalTableProps {

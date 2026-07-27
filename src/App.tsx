@@ -527,6 +527,45 @@ function App() {
           onClearAllHistory={handleClearAllHistory}
         />
       </main>
+
+      {/* Footer */}
+      <footer className="max-w-5xl mx-auto px-4 py-6 border-t border-border">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+          <p>
+            Desenvolvido por{' '}
+            <a
+              href="https://www.linkedin.com/in/mauricio-sarpa/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground hover:text-blue-600 dark:hover:text-blue-400 underline underline-offset-2 transition-colors"
+            >
+              Mauricio Sarpa
+            </a>{' '}
+            &copy; {new Date().getFullYear()}
+          </p>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/Sarpa-m/csv-cascade-filter"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              GitHub
+            </a>
+            <span className="text-muted-foreground/40">|</span>
+            <p>
+            <a
+              href="https://creativecommons.org/licenses/by-sa/4.0/deed.pt-br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              CC BY-SA 4.0
+            </a>
+          </p>
+        </div>
+        </div>
+      </footer>
     </div>
   );
 }
