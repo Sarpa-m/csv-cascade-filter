@@ -37,10 +37,15 @@ v<MAJOR>.<MINOR>.<PATCH>
 
 ## Passo a passo
 
-### 1. Merge develop → main
+### 1. Atualizar `APP_VERSION` no código
 
-> A versão é extraída automaticamente da tag git pelo Vite (`git describe --tags`).
-> Basta criar a tag — o build injeta a versão correta, sem risco de esquecimento.
+Antes do merge, atualizar `src/lib/version.ts`:
+
+```ts
+export const APP_VERSION = '1.5.0'; // <-- bump manual
+```
+
+### 2. Merge develop → main
 
 O PR de `develop` para `main` deve:
 
@@ -53,7 +58,7 @@ git checkout main
 git pull origin main
 ```
 
-### 2. Gerar o bundle.html
+### 3. Gerar o bundle.html
 
 O arquivo auto-contido é o artefato principal do projeto — permite abrir o app direto no navegador, sem servidor.
 
@@ -63,14 +68,14 @@ bash scripts/bundle.sh
 
 O output é `bundle.html` na raiz do projeto. **Nunca lance uma release sem este arquivo.**
 
-### 3. Criar a tag
+### 4. Criar a tag
 
 ```bash
 git tag v<versão>
 git push origin v<versão>
 ```
 
-### 4. Criar o release no GitHub com o bundle anexado
+### 5. Criar o release no GitHub com o bundle anexado
 
 ```bash
 gh release create v<versão> \
@@ -139,6 +144,7 @@ gh release create v1.3.0 \
 
 ## Checklist de release
 
+- [ ] `APP_VERSION` em `src/lib/version.ts` atualizado manualmente
 - [ ] PR `develop → main` mergeado
 - [ ] `bundle.html` gerado com sucesso (`ls -lh bundle.html`)
 - [ ] Tag Git criada e pushada
