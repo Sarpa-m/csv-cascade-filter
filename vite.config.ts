@@ -22,7 +22,7 @@ export default defineConfig({
     },
   },
   define: {
-    "import.meta.env.VITE_APP_VERSION": JSON.stringify(getVersion()),
+    __APP_VERSION__: JSON.stringify(getVersion()),
   },
   test: {
     environment: "jsdom",
