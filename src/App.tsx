@@ -17,6 +17,7 @@ import { useCsvParser } from '@/hooks/useCsvParser';
 import { useCascadeFilters } from '@/hooks/useCascadeFilters';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useVersionCheck, dismissVersion, APP_VERSION } from '@/hooks/useVersionCheck';
 import { allColumnsFilled } from '@/lib/cascadeLogic';
 import { exportAsCsv, exportAsTsv, exportAsXlsx, copyTsvToClipboard } from '@/lib/exporters';
 import type { AppState, SavedRow, ExportFormat, TableHistory } from '@/types';
@@ -62,6 +63,8 @@ function App() {
   const cascadeInitialized = React.useRef(false);
   const comingFromFilter = React.useRef(false);
 
+  const versionInfo = useVersionCheck();
+
   // Estado local da tela de reordenação (visibilidade das colunas)
   const [reorderHidden, setReorderHidden] = React.useState<Set<string>>(new Set());
 
@@ -88,6 +91,26 @@ function App() {
       }));
     }
   }, [cascade.columns, setAppState]);
+
+  // Notifica o usuário se houver uma versão mais nova no GitHub
+  React.useEffect(() => {
+    if (!versionInfo?.hasUpdate) return;
+
+    toast('Nova versão disponível!', {
+      description: `v${versionInfo.latest} — você está usando v${versionInfo.current}`,
+      duration: 10000,
+      action: {
+        label: 'Ver',
+        onClick: () => window.open(versionInfo.releaseUrl!, '_blank', 'noopener'),
+      },
+      cancel: {
+        label: 'Ignorar',
+        onClick: () => {
+          if (versionInfo.latest) dismissVersion(versionInfo.latest);
+        },
+      },
+    });
+  }, [versionInfo]);
 
   // --- Handlers ---
 
@@ -542,6 +565,8 @@ function App() {
               Mauricio Sarpa
             </a>{' '}
             &copy; {new Date().getFullYear()}
+            {' '}&middot;{' '}
+            <span className="font-mono">v{APP_VERSION}</span>
           </p>
           <div className="flex items-center gap-3">
             <a
