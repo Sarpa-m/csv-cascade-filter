@@ -9,8 +9,9 @@ import {
   DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { ExportMenu } from '@/components/ExportMenu';
-import type { SavedRow, ExportFormat } from '@/types';
-import { ArrowLeft, Trash2, Users, Zap, MousePointer, AlertTriangle, Eraser, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+import type { ExportFormat } from '@/types';
+import { ArrowLeft, Trash2, AlertTriangle, Eraser, Clock } from 'lucide-react';
 
 interface FinalTableProps {
   headers: string[];
@@ -30,17 +31,15 @@ export const FinalTable: React.FC<FinalTableProps> = ({
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = React.useState(false);
 
-  const sourceIcon = (source: SavedRow['source']) => {
-    switch (source) {
-      case 'auto':
-        return <span title="Avanço automático"><Zap className="w-3.5 h-3.5 text-blue-500" /></span>;
-      case 'multi-select':
-        return <span title="Multi-seleção"><Users className="w-3.5 h-3.5 text-purple-500" /></span>;
-      default:
-        return <span title="Manual"><MousePointer className="w-3.5 h-3.5 text-muted-foreground" /></span>;
+  const handleCellClick = React.useCallback(async (text: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copiado!', { duration: 1500 });
+    } catch {
+      toast.error('Falha ao copiar.');
     }
-  };
-
+  }, []);
   return (
     <div className="w-full max-w-5xl mx-auto space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -98,7 +97,6 @@ export const FinalTable: React.FC<FinalTableProps> = ({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
-                  <TableHead className="w-10">Fonte</TableHead>
                   {headers.map((h) => (
                     <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
                   ))}
@@ -109,12 +107,19 @@ export const FinalTable: React.FC<FinalTableProps> = ({
                 {rows.map((row, idx) => (
                   <TableRow key={row.id}>
                     <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                    <TableCell>{sourceIcon(row.source)}</TableCell>
-                    {headers.map((h) => (
-                      <TableCell key={h} className="whitespace-nowrap max-w-[200px] truncate">
-                        {row.values[h] ?? ''}
-                      </TableCell>
-                    ))}
+                    {headers.map((h) => {
+                      const text = row.values[h] ?? '';
+                      return (
+                        <TableCell
+                          key={h}
+                          className="whitespace-nowrap max-w-[250px] truncate cursor-pointer hover:bg-accent/50 transition-all duration-200"
+                          title={text || undefined}
+                          onClick={() => handleCellClick(text)}
+                        >
+                          {text}
+                        </TableCell>
+                      );
+                    })}
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon"
                         onClick={() => setDeleteId(row.id)}
