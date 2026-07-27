@@ -32,7 +32,7 @@ fi
 
 # Clean previous build
 echo "🧹 Cleaning previous build..."
-rm -rf dist bundle.html
+rm -rf dist csv-cascade-filter.html
 
 # Build with Parcel
 echo "🔨 Building with Parcel..."
@@ -40,13 +40,13 @@ pnpm exec parcel build index.html --dist-dir dist --no-source-maps
 
 # Inline everything into single HTML
 echo "🎯 Inlining all assets into single HTML file..."
-pnpm exec html-inline dist/index.html > bundle.html
+pnpm exec html-inline dist/index.html > csv-cascade-filter.html
 
 # Get file size
-FILE_SIZE=$(du -h bundle.html | cut -f1)
+FILE_SIZE=$(du -h csv-cascade-filter.html | cut -f1)
 
 echo ""
 echo "✅ Bundle complete!"
-echo "📄 Output: bundle.html ($FILE_SIZE)"
+echo "📄 Output: csv-cascade-filter.html ($FILE_SIZE)"
 echo ""
-echo "To test locally: open bundle.html in your browser"
+echo "To test locally: open csv-cascade-filter.html in your browser"
