@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { CascadeColumn } from '@/types';
-import { Lock, LockOpen, List, AlertTriangle } from 'lucide-react';
+import { Lock, LockOpen, List, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 
 interface CascadeFilterProps {
   columns: CascadeColumn[];
@@ -25,6 +25,7 @@ interface CascadeFilterProps {
   onToggleMultiSelect: (columnName: string) => void;
   onResetCascade: () => void;
   onGoToReview: () => void;
+  onBackToReorder: () => void;
   totalSavedRows: number;
 }
 
@@ -39,16 +40,21 @@ export const CascadeFilter: React.FC<CascadeFilterProps> = ({
   onToggleMultiSelect,
   onResetCascade,
   onGoToReview,
+  onBackToReorder,
   totalSavedRows,
 }) => {
   const [showResetDialog, setShowResetDialog] = React.useState(false);
 
   const sorted = useMemo(
-    () => [...columns].sort((a, b) => a.cascadeIndex - b.cascadeIndex),
+    () =>
+      [...columns]
+        .filter((c) => c.visible)
+        .sort((a, b) => a.cascadeIndex - b.cascadeIndex),
     [columns],
   );
 
-  const anyLocked = columns.some((c) => c.locked);
+  const visibleColumns = useMemo(() => columns.filter((c) => c.visible), [columns]);
+  const anyLocked = visibleColumns.some((c) => c.locked);
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
@@ -70,15 +76,25 @@ export const CascadeFilter: React.FC<CascadeFilterProps> = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onSetAllLocks(!anyLocked || columns.every((c) => c.locked))}
+            onClick={onBackToReorder}
+            className="transition-all duration-200"
+            title="Voltar para reordenar/ocultar colunas"
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />
+            Reordenar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onSetAllLocks(!anyLocked || visibleColumns.every((c) => c.locked))}
             className="transition-all duration-200"
           >
-            {anyLocked && columns.some((c) => !c.locked) ? (
+            {anyLocked && visibleColumns.some((c) => !c.locked) ? (
               <>
                 <Lock className="w-3.5 h-3.5 mr-1" />
                 Travar todas
               </>
-            ) : columns.every((c) => c.locked) ? (
+            ) : visibleColumns.length > 0 && visibleColumns.every((c) => c.locked) ? (
               <>
                 <LockOpen className="w-3.5 h-3.5 mr-1" />
                 Destravar todas
@@ -124,6 +140,11 @@ export const CascadeFilter: React.FC<CascadeFilterProps> = ({
       {/* Colunas em cascata */}
       <Card>
         <CardContent className="pt-6 space-y-4">
+          {sorted.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhuma coluna visível. Use o botão <strong>Reordenar</strong> para mostrar colunas.
+            </p>
+          )}
           {sorted.map((col, displayIdx) => {
             const isUnlocked =
               col.cascadeIndex === 0 ||

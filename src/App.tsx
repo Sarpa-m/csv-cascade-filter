@@ -60,6 +60,10 @@ function App() {
 
   const autoSubmitLock = React.useRef(false);
   const cascadeInitialized = React.useRef(false);
+  const comingFromFilter = React.useRef(false);
+
+  // Estado local da tela de reordenação (visibilidade das colunas)
+  const [reorderHidden, setReorderHidden] = React.useState<Set<string>>(new Set());
 
   // Inicializa o hook de cascata com os dados restaurados do localStorage.
   // Sem isso, reorderColumns opera sobre estado vazio e gera colunas undefined.
@@ -98,6 +102,8 @@ function App() {
         partialSelection: null,
       }));
       setStage('reorder');
+      setReorderHidden(new Set());
+      comingFromFilter.current = false;
       cascade.initColumns(result.headers, result.data as AppState['csvData']);
       if (result.errors.length > 0) {
         toast.warning(`${result.errors.length} linha(s) ignoradas por formato incorreto.`);
@@ -108,11 +114,50 @@ function App() {
   );
 
   const handleReorderContinue = useCallback((orderedHeaders: string[]) => {
-    cascade.reorderColumns(orderedHeaders);
-    const defaultName = `Lista ${appState.tableHistory.length + 1}`;
-    setPendingListName(defaultName);
-    setShowNameDialog(true);
-  }, [cascade, appState.tableHistory.length]);
+    // Aplica ordem e visibilidade (preserva seleções se voltando do filtro)
+    cascade.updateColumnOrder(orderedHeaders, reorderHidden);
+
+    if (comingFromFilter.current) {
+      // Voltou do filtro: volta direto para a cascata
+      comingFromFilter.current = false;
+      setStage('filter');
+      autoSubmitLock.current = false;
+      setTimeout(() => cascade.resetForNewRow(), 0);
+    } else {
+      // Primeira vez (vindo do import): pede nome da lista
+      const defaultName = `Lista ${appState.tableHistory.length + 1}`;
+      setPendingListName(defaultName);
+      setShowNameDialog(true);
+    }
+  }, [cascade, appState.tableHistory.length, reorderHidden]);
+
+  const handleBackToReorder = useCallback(() => {
+    const sorted = [...cascade.columns].sort((a, b) => a.cascadeIndex - b.cascadeIndex);
+    const names = sorted.map((c) => c.name);
+    const hidden = new Set(sorted.filter((c) => !c.visible).map((c) => c.name));
+
+    dragDrop.resetItems(names);
+    setReorderHidden(hidden);
+    comingFromFilter.current = true;
+    setStage('reorder');
+  }, [cascade.columns, dragDrop]);
+
+  const handleCancelReorder = useCallback(() => {
+    comingFromFilter.current = false;
+    setStage('filter');
+  }, []);
+
+  const handleToggleVisibility = useCallback((col: string) => {
+    setReorderHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(col)) {
+        next.delete(col);
+      } else {
+        next.add(col);
+      }
+      return next;
+    });
+  }, []);
 
   const handleConfirmListName = useCallback(() => {
     const name = pendingListName.trim() || 'Sem nome';
@@ -206,6 +251,8 @@ function App() {
     resetState();
     cascade.initColumns([], []);
     autoSubmitLock.current = false;
+    comingFromFilter.current = false;
+    setReorderHidden(new Set());
     setStage('import');
     toast.info('Sessão resetada.');
   }, [resetState, cascade]);
@@ -421,6 +468,7 @@ function App() {
         {stage === 'reorder' && (
           <ColumnReorder
             columns={dragDrop.items}
+            hiddenColumns={reorderHidden}
             draggedIndex={dragDrop.draggedIndex}
             dragOverIndex={dragDrop.dragOverIndex}
             onDragStart={dragDrop.handleDragStart}
@@ -432,6 +480,8 @@ function App() {
             onDragEnd={dragDrop.handleDragEnd}
             onContinue={() => handleReorderContinue(dragDrop.items)}
             onMoveItem={dragDrop.moveItem}
+            onToggleVisibility={handleToggleVisibility}
+            onBack={comingFromFilter.current ? handleCancelReorder : undefined}
           />
         )}
 
@@ -447,6 +497,7 @@ function App() {
             onToggleMultiSelect={cascade.toggleMultiSelect}
             onResetCascade={handleReset}
             onGoToReview={() => setStage('review')}
+            onBackToReorder={handleBackToReorder}
             totalSavedRows={appState.savedRows.length}
           />
         )}
@@ -476,6 +527,45 @@ function App() {
           onClearAllHistory={handleClearAllHistory}
         />
       </main>
+
+      {/* Footer */}
+      <footer className="max-w-5xl mx-auto px-4 py-6 border-t border-border">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+          <p>
+            Desenvolvido por{' '}
+            <a
+              href="https://www.linkedin.com/in/mauricio-sarpa/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground hover:text-blue-600 dark:hover:text-blue-400 underline underline-offset-2 transition-colors"
+            >
+              Mauricio Sarpa
+            </a>{' '}
+            &copy; {new Date().getFullYear()}
+          </p>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/Sarpa-m/csv-cascade-filter"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              GitHub
+            </a>
+            <span className="text-muted-foreground/40">|</span>
+            <p>
+            <a
+              href="https://creativecommons.org/licenses/by-sa/4.0/deed.pt-br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              CC BY-SA 4.0
+            </a>
+          </p>
+        </div>
+        </div>
+      </footer>
     </div>
   );
 }

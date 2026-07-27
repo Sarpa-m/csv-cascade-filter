@@ -14,7 +14,10 @@ export function useLocalStorage<T>(
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored) as T;
+        const parsed = JSON.parse(stored);
+        // Merge com defaultValue para que novos campos adicionados
+        // em versões futuras tenham valores padrão (ex: tableHistory).
+        return { ...defaultValue, ...parsed } as T;
       }
     } catch {
       // Dado corrompido ou inexistente — usa default

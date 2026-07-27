@@ -14,6 +14,8 @@ interface UseDragAndDropReturn {
   handleDragEnd: () => void;
   /** Reordena manualmente (para acessibilidade / fallback sem drag) */
   moveItem: (fromIndex: number, toIndex: number) => void;
+  /** Reinicializa a lista de items (ex.: ao voltar da tela de filtros) */
+  resetItems: (newItems: string[]) => void;
 }
 
 /**
@@ -100,6 +102,11 @@ export function useDragAndDrop(
     [items, onReorder],
   );
 
+  const resetItems = useCallback((newItems: string[]) => {
+    itemsRef.current = newItems;
+    setItems(newItems);
+  }, []);
+
   return {
     items,
     draggedIndex,
@@ -110,5 +117,6 @@ export function useDragAndDrop(
     handleDrop,
     handleDragEnd,
     moveItem,
+    resetItems,
   };
 }
