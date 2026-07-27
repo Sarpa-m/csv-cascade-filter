@@ -34,9 +34,27 @@ fi
 echo "🧹 Cleaning previous build..."
 rm -rf dist csv-cascade-filter.html
 
+# Parse CLI flags: --version v1.5.0 or -v v1.5.0
+VERSION=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version|-v) VERSION="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+# Fallback chain: CLI flag → env var → git tag → default
+VERSION=${VERSION:-${APP_VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}}
+VERSION=${VERSION:-0.0.0}
+echo "🏷️  Version: $VERSION"
+sed -i "s/export const APP_VERSION.*/export const APP_VERSION = '$VERSION';/" src/lib/version.ts
+
 # Build with Parcel
 echo "🔨 Building with Parcel..."
 pnpm exec parcel build index.html --dist-dir dist --no-source-maps
+
+# Restore version.ts
+git checkout src/lib/version.ts
 
 # Inline everything into single HTML
 echo "🎯 Inlining all assets into single HTML file..."
