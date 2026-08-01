@@ -15,9 +15,46 @@ description: >
 Toda release deve incluir:
 
 1. **Tag Git** seguindo SemVer (`vMAJOR.MINOR.PATCH`)
-2. **Release notes** em português com seções `✨ Novidades` e `🐛 Correções`
-3. **Arquivo compilado** `csv-cascade-filter.html` anexado como artefato
-4. **PR title** seguindo Conventional Commits (`feat:`, `fix:`, etc.) para o merge `develop → main`
+2. **Release notes** em português, seguindo o [padrão de descrição](#padrão-de-descrição-de-release) abaixo
+3. **Arquivo compilado** `csv-cascade-filter.html` anexado como artefato (feito automaticamente pelo CI)
+4. **PR title** seguindo Conventional Commits (`feat:`, `fix:`, etc.) para qualquer PR mergeado em `main`
+
+---
+
+## Padrão de descrição de release
+
+A descrição de toda release segue esta estrutura fixa. **Seções vazias são omitidas** — nunca deixar um cabeçalho sem itens embaixo.
+
+```markdown
+### ✨ Novidades
+- <o que o usuário ganha, não o nome do commit>
+- ...
+
+### 🐛 Correções
+- <bug corrigido e o efeito percebido, não a causa técnica interna>
+- ...
+
+### ⚙️ Infraestrutura
+- <CI/CD, build, scripts, versionamento — não afeta o usuário final>
+- ...
+
+### 📚 Documentação
+- <README, skills, comentários de arquitetura>
+- ...
+
+---
+**Full Changelog**: https://github.com/Sarpa-m/csv-cascade-filter/compare/v<anterior>...v<atual>
+```
+
+Regras:
+
+- **Ordem fixa** das seções: Novidades → Correções → Infraestrutura → Documentação. Nunca reordenar.
+- **Uma seção só aparece se tiver conteúdo.** Release só de CI não tem `✨ Novidades`; release só de bugfix de app não tem `⚙️ Infraestrutura`.
+- **Itens descrevem impacto, não o commit.** Traduza `fix(ci): dispara release em tags v*` para algo como "Release passa a disparar automaticamente ao criar uma tag `v*`".
+- **Correção de app-bug (afeta o usuário) vai em `🐛 Correções`.** Ajuste de pipeline/script/CI vai em `⚙️ Infraestrutura`, mesmo que o commit tenha sido `fix:`.
+- **Sempre termina com o link `Full Changelog`** comparando com a tag anterior (não incluir na primeiríssima release, `v1.0.0`, que não tem tag anterior).
+- **Não duplicar a lista "What's Changed" bruta do GitHub** (PRs/autores) — o release é criado com `generate_release_notes: false` implícito porque o `body` já é fornecido; se precisar da lista de PRs por rastreabilidade, ela fica só no link `Full Changelog`.
+- **Não usar bloco "Download"** explicando que o arquivo roda no navegador — isso já é padrão do projeto (ver `README.md`) e o asset já aparece na seção "Assets" do GitHub.
 
 ---
 
@@ -37,120 +74,95 @@ v<MAJOR>.<MINOR>.<PATCH>
 
 ## Passo a passo
 
-### 1. Atualizar `APP_VERSION` no código
+O pipeline de release é **totalmente automático a partir da tag** — não há PR de release, não há bump manual, não há geração manual do bundle. O único gatilho humano é criar e empurrar a tag.
 
-Antes do merge, atualizar `src/lib/version.ts`:
+### 1. Garantir que `main` está com tudo que deve entrar na release
 
-```ts
-export const APP_VERSION = '1.5.0'; // <-- bump manual
-```
-
-### 2. Merge develop → main
-
-O PR de `develop` para `main` deve:
-
-- Ter título seguindo **Conventional Commits**: `feat: descrição curta` ou `fix: descrição`
-- Passar em todos os checks de CI
-- Após merge, fazer checkout da `main` atualizada:
+Todo o trabalho de feature/fix entra em `main` via PR normal (título em Conventional Commits, checks verdes). Confirme que `main` está atualizada:
 
 ```bash
 git checkout main
 git pull origin main
 ```
 
-### 3. Gerar o csv-cascade-filter.html
-
-O arquivo auto-contido é o artefato principal do projeto — permite abrir o app direto no navegador, sem servidor.
-
-```bash
-bash scripts/bundle.sh
-```
-
-O output é `csv-cascade-filter.html` na raiz do projeto. **Nunca lance uma release sem este arquivo.**
-
-### 4. Criar a tag
+### 2. Criar e empurrar a tag
 
 ```bash
 git tag v<versão>
 git push origin v<versão>
 ```
 
-### 5. Criar o release no GitHub com o bundle anexado
+Isso dispara `.github/workflows/ci.yml`, que roda em sequência:
+
+1. **`bump`** — atualiza `APP_VERSION` em `src/lib/version.ts` e o badge do `README.md` para `<versão>`, e faz commit + push **direto em `main`** (usa o secret `RELEASE_TOKEN`, que tem permissão de bypass da proteção de branch — ver `enforce_admins` desativado nas branch protection rules).
+2. **`test`** — typecheck + testes.
+3. **`bundle`** — gera `csv-cascade-filter.html` já com a versão da tag injetada via `--version`.
+4. **`release`** — cria o release no GitHub com o bundle anexado como asset.
+
+Isso substitui as etapas manuais "atualizar `APP_VERSION`", "gerar bundle" e "criar release" que existiam antes — não faça nenhuma delas manualmente.
+
+### 3. Acompanhar a run
 
 ```bash
-gh release create v<versão> \
-  --title "v<versão> — Resumo curto das novidades" \
-  --notes '## ✨ Novidades
-
-### Seção
-- feat: descrição
-- feat: descrição
-
-### Seção
-- feat: descrição
-
-### 📄 Outros
-- Descrição
-
-### 🐛 Correções
-- fix: descrição
-- fix: descrição' \
-  csv-cascade-filter.html
+gh run watch --exit-status
 ```
 
-O `csv-cascade-filter.html` no final do comando faz o upload automático como artefato da release.
+Confirme ao final:
+
+```bash
+gh release view v<versão> --json tagName,isDraft,assets
+```
+
+### 4. Escrever a descrição da release
+
+O job `release` cria o release **sem corpo customizado** (só o asset). Depois que a run termina, escreva a descrição seguindo o [padrão acima](#padrão-de-descrição-de-release) e aplique com:
+
+```bash
+gh release edit v<versão> --notes "$(cat <<'EOF'
+### ✨ Novidades
+- ...
+
+### 🐛 Correções
+- ...
+EOF
+)"
+```
+
+Base o conteúdo no diff real, não em suposições:
+
+```bash
+git log --oneline v<versão-anterior>..v<versão>
+```
 
 ---
 
 ## Exemplo real
 
 ```bash
-# 1. Merge develop → main (via PR #7)
-git checkout main && git pull origin main
-
-# 2. Bundle
-bash scripts/bundle.sh
-# ✅ Bundle complete! Output: csv-cascade-filter.html (480K)
-
-# 3. Tag
-git tag v1.3.0 && git push origin v1.3.0
-
-# 4. Release com artefato
-gh release create v1.3.0 \
-  --title "v1.3.0 — Reordenação flexível, ocultar colunas e melhorias na tabela final" \
-  --notes '## ✨ Novidades
-
-### 🔄 Reordenação flexível dos filtros
-- Botão **Reordenar** na tela de filtros permite voltar à ordem da cascata
-- Colunas podem ser **ocultadas** via toggle — não aparecem nos filtros mas continuam na tabela final
-
-### 🔍 Analisador de colunas (1:1)
-- Detecta colunas com relação 1:1 e sugere ocultar a de tipo código/ID
-
-### 📊 Melhorias na tabela final
-- Coluna "Fonte" removida
-- Texto longo truncado com `...` — hover revela conteúdo completo
-- Clique na célula copia o texto
-
-### 📄 Footer
-- Créditos com links para LinkedIn e GitHub
-- Licença CC BY-SA 4.0
-
+git tag v1.4.4 && git push origin v1.4.4
+gh run watch --exit-status
+gh release edit v1.4.4 --notes "$(cat <<'EOF'
 ### 🐛 Correções
-- Crash ao carregar estado sem `tableHistory`' \
-  csv-cascade-filter.html
-```
+- Pipeline de release não depende mais de PR: o bump de versão pós-tag falhava por falta de permissão de Actions para criar PRs — agora é feito via push direto em \`main\`
+- Job de release não é mais pulado silenciosamente quando o bump falha
 
+### ⚙️ Infraestrutura
+- Removido o workflow \`bump-version.yml\`, duplicado e obsoleto
+
+---
+**Full Changelog**: https://github.com/Sarpa-m/csv-cascade-filter/compare/v1.4.3...v1.4.4
+EOF
+)"
+```
 
 ## Checklist de release
 
-- [ ] `APP_VERSION` em `src/lib/version.ts` atualizado manualmente
-- [ ] PR `develop → main` mergeado
-- [ ] `csv-cascade-filter.html` gerado com sucesso (`ls -lh csv-cascade-filter.html`)
-- [ ] Tag Git criada e pushada
-- [ ] `csv-cascade-filter.html` anexado no release
-- [ ] Release notes com seções `## ✨ Novidades` e `## 🐛 Correções`
-- [ ] Link do release funciona (`gh release view v<versão>`)
+- [ ] `main` atualizada com tudo que deve entrar na release
+- [ ] Tag Git criada e pushada (`git tag vX.Y.Z && git push origin vX.Y.Z`)
+- [ ] Run do CI verde (`bump` → `test` → `bundle` → `release`)
+- [ ] `csv-cascade-filter.html` anexado como asset (`gh release view vX.Y.Z --json assets`)
+- [ ] Descrição da release reescrita seguindo o [padrão de descrição](#padrão-de-descrição-de-release)
+- [ ] `APP_VERSION` em `main` bate com a tag (`gh api repos/Sarpa-m/csv-cascade-filter/contents/src/lib/version.ts`)
 
 ---
 
