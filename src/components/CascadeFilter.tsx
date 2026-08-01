@@ -11,8 +11,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import type { CascadeColumn } from '@/types';
-import { Lock, LockOpen, List, AlertTriangle, ArrowLeftRight } from 'lucide-react';
+import { Lock, LockOpen, List, AlertTriangle, ArrowLeftRight, Layers, Plus } from 'lucide-react';
+
+export interface WorkListSummary {
+  id: string;
+  name: string;
+  rowCount: number;
+}
 
 interface CascadeFilterProps {
   columns: CascadeColumn[];
@@ -27,6 +34,11 @@ interface CascadeFilterProps {
   onGoToReview: () => void;
   onBackToReorder: () => void;
   totalSavedRows: number;
+  /** Listas de trabalho existentes, para o seletor "qual lista estou preenchendo" */
+  lists: WorkListSummary[];
+  activeListId: string | null;
+  onSwitchList: (id: string) => void;
+  onNewList: () => void;
 }
 
 export const CascadeFilter: React.FC<CascadeFilterProps> = ({
@@ -42,6 +54,10 @@ export const CascadeFilter: React.FC<CascadeFilterProps> = ({
   onGoToReview,
   onBackToReorder,
   totalSavedRows,
+  lists,
+  activeListId,
+  onSwitchList,
+  onNewList,
 }) => {
   const [showResetDialog, setShowResetDialog] = React.useState(false);
 
@@ -58,6 +74,50 @@ export const CascadeFilter: React.FC<CascadeFilterProps> = ({
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
+      {/* Seletor de lista de trabalho */}
+      {lists.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Listas de trabalho">
+          {lists.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              role="tab"
+              aria-pressed={l.id === activeListId}
+              onClick={() => onSwitchList(l.id)}
+              title={l.name}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-all duration-200',
+                l.id === activeListId
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-card text-muted-foreground border-border hover:border-input hover:text-foreground',
+              )}
+            >
+              <Layers className="w-3 h-3 flex-shrink-0" />
+              <span className="max-w-[140px] truncate">{l.name}</span>
+              {l.rowCount > 0 && (
+                <span
+                  className={cn(
+                    'text-[10px] px-1.5 rounded-full',
+                    l.id === activeListId ? 'bg-white/20' : 'bg-muted',
+                  )}
+                >
+                  {l.rowCount}
+                </span>
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={onNewList}
+            title="Iniciar uma nova lista"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border border-dashed border-border text-muted-foreground hover:border-input hover:text-foreground transition-all duration-200"
+          >
+            <Plus className="w-3 h-3" />
+            Nova lista
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>

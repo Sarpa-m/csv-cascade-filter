@@ -20,9 +20,12 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useVersionCheck, dismissVersion, APP_VERSION } from '@/hooks/useVersionCheck';
 import { allColumnsFilled } from '@/lib/cascadeLogic';
 import { exportAsCsv, exportAsTsv, exportAsXlsx, copyTsvToClipboard } from '@/lib/exporters';
-import type { AppState, SavedRow, ExportFormat, TableHistory } from '@/types';
+import type { AppState, SavedRow, ExportFormat, TableHistory, WorkList, CascadeColumn } from '@/types';
 
 type AppStage = 'import' | 'reorder' | 'filter' | 'review';
+
+/** Origem da tela de reordenação: define o que "Continuar" faz */
+type ReorderOrigin = 'import' | 'new-list' | 'edit-active';
 
 /** Compara dois objetos planos (string → string) por valor */
 function shallowEqual(a: Record<string, string>, b: Record<string, string>): boolean {
@@ -35,18 +38,20 @@ function shallowEqual(a: Record<string, string>, b: Record<string, string>): boo
 const DEFAULT_STATE: AppState = {
   csvHeaders: [],
   csvData: [],
-  cascadeColumns: [],
-  savedRows: [],
+  workLists: [],
+  activeListId: null,
   tableHistory: [],
-  currentListName: '',
-  partialSelection: null,
 };
 
 function App() {
   const [appState, setAppState, resetState] = useLocalStorage<AppState>(DEFAULT_STATE);
+  const activeList: WorkList | null = React.useMemo(
+    () => appState.workLists.find((l) => l.id === appState.activeListId) ?? null,
+    [appState.workLists, appState.activeListId],
+  );
   const [stage, setStage] = React.useState<AppStage>(
     appState.csvHeaders.length > 0
-      ? appState.cascadeColumns.length > 0
+      ? appState.workLists.length > 0 && appState.activeListId
         ? 'filter'
         : 'reorder'
       : 'import',
@@ -61,36 +66,35 @@ function App() {
 
   const autoSubmitLock = React.useRef(false);
   const cascadeInitialized = React.useRef(false);
-  const comingFromFilter = React.useRef(false);
+  const reorderOrigin = React.useRef<ReorderOrigin>('import');
+  const pendingOrder = React.useRef<string[]>([]);
 
   const versionInfo = useVersionCheck();
 
   // Estado local da tela de reordenação (visibilidade das colunas)
   const [reorderHidden, setReorderHidden] = React.useState<Set<string>>(new Set());
 
-  // Inicializa o hook de cascata com os dados restaurados do localStorage.
-  // Sem isso, reorderColumns opera sobre estado vazio e gera colunas undefined.
+  // Inicializa o hook de cascata com os dados restaurados do localStorage,
+  // carregando as colunas da lista ativa (se houver).
   React.useEffect(() => {
-    if (!cascadeInitialized.current && appState.csvHeaders.length > 0) {
-      cascade.initColumns(
-        appState.csvHeaders,
-        appState.csvData,
-        appState.cascadeColumns.length > 0 ? appState.cascadeColumns : undefined,
-      );
-      cascadeInitialized.current = true;
-    }
-  }, [appState.csvHeaders, appState.csvData, appState.cascadeColumns, cascade]);
+    if (cascadeInitialized.current || appState.csvHeaders.length === 0) return;
+    const list = appState.workLists.find((l) => l.id === appState.activeListId);
+    cascade.initColumns(appState.csvHeaders, appState.csvData, list?.cascadeColumns);
+    cascadeInitialized.current = true;
+  }, [appState.csvHeaders, appState.csvData, appState.workLists, appState.activeListId, cascade]);
 
-  // Sincroniza as colunas da cascata de volta para o appState (persistência).
-  // Assim, ao fechar e reabrir, as seleções e travamentos são preservados.
+  // Sincroniza as colunas da cascata de volta para a lista ativa (persistência).
+  // Assim, ao fechar e reabrir, as seleções e travamentos são preservados por lista.
   React.useEffect(() => {
-    if (cascade.columns.length > 0) {
-      setAppState((prev) => ({
-        ...prev,
-        cascadeColumns: cascade.columns,
-      }));
-    }
-  }, [cascade.columns, setAppState]);
+    if (cascade.columns.length === 0 || !appState.activeListId) return;
+    setAppState((prev) => {
+      const idx = prev.workLists.findIndex((l) => l.id === prev.activeListId);
+      if (idx === -1) return prev;
+      const nextLists = [...prev.workLists];
+      nextLists[idx] = { ...nextLists[idx], cascadeColumns: cascade.columns, updatedAt: new Date().toISOString() };
+      return { ...prev, workLists: nextLists };
+    });
+  }, [cascade.columns, appState.activeListId, setAppState]);
 
   // Notifica o usuário se houver uma versão mais nova no GitHub
   React.useEffect(() => {
@@ -120,13 +124,12 @@ function App() {
         ...prev,
         csvHeaders: result.headers,
         csvData: result.data as AppState['csvData'],
-        cascadeColumns: [],
-        savedRows: prev.savedRows,
-        partialSelection: null,
+        workLists: [],
+        activeListId: null,
       }));
       setStage('reorder');
       setReorderHidden(new Set());
-      comingFromFilter.current = false;
+      reorderOrigin.current = 'import';
       cascade.initColumns(result.headers, result.data as AppState['csvData']);
       if (result.errors.length > 0) {
         toast.warning(`${result.errors.length} linha(s) ignoradas por formato incorreto.`);
@@ -137,22 +140,20 @@ function App() {
   );
 
   const handleReorderContinue = useCallback((orderedHeaders: string[]) => {
-    // Aplica ordem e visibilidade (preserva seleções se voltando do filtro)
-    cascade.updateColumnOrder(orderedHeaders, reorderHidden);
-
-    if (comingFromFilter.current) {
-      // Voltou do filtro: volta direto para a cascata
-      comingFromFilter.current = false;
+    if (reorderOrigin.current === 'edit-active') {
+      // Editando a lista ativa: aplica ordem e visibilidade preservando seleções/travas
+      cascade.updateColumnOrder(orderedHeaders, reorderHidden);
       setStage('filter');
       autoSubmitLock.current = false;
       setTimeout(() => cascade.resetForNewRow(), 0);
-    } else {
-      // Primeira vez (vindo do import): pede nome da lista
-      const defaultName = `Lista ${appState.tableHistory.length + 1}`;
-      setPendingListName(defaultName);
-      setShowNameDialog(true);
+      return;
     }
-  }, [cascade, appState.tableHistory.length, reorderHidden]);
+    // 'import' ou 'new-list': guarda a ordem e pede o nome da nova lista
+    pendingOrder.current = orderedHeaders;
+    const defaultName = `Lista ${appState.workLists.length + 1}`;
+    setPendingListName(defaultName);
+    setShowNameDialog(true);
+  }, [cascade, reorderHidden, appState.workLists.length]);
 
   const handleBackToReorder = useCallback(() => {
     const sorted = [...cascade.columns].sort((a, b) => a.cascadeIndex - b.cascadeIndex);
@@ -161,12 +162,18 @@ function App() {
 
     dragDrop.resetItems(names);
     setReorderHidden(hidden);
-    comingFromFilter.current = true;
+    reorderOrigin.current = 'edit-active';
     setStage('reorder');
   }, [cascade.columns, dragDrop]);
 
+  const handleStartNewList = useCallback(() => {
+    dragDrop.resetItems(appState.csvHeaders);
+    setReorderHidden(new Set());
+    reorderOrigin.current = 'new-list';
+    setStage('reorder');
+  }, [appState.csvHeaders, dragDrop]);
+
   const handleCancelReorder = useCallback(() => {
-    comingFromFilter.current = false;
     setStage('filter');
   }, []);
 
@@ -184,12 +191,46 @@ function App() {
 
   const handleConfirmListName = useCallback(() => {
     const name = pendingListName.trim() || 'Sem nome';
-    setAppState((prev) => ({ ...prev, currentListName: name }));
+    const order = pendingOrder.current;
+    const newColumns: CascadeColumn[] = order.map((colName, i) => ({
+      name: colName,
+      originalIndex: appState.csvHeaders.indexOf(colName),
+      cascadeIndex: i,
+      locked: false,
+      selectedValues: [],
+      autoFilled: false,
+      multiSelectEnabled: false,
+      visible: !reorderHidden.has(colName),
+    }));
+    const newList: WorkList = {
+      id: crypto.randomUUID(),
+      name,
+      cascadeColumns: newColumns,
+      savedRows: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setAppState((prev) => ({
+      ...prev,
+      workLists: [...prev.workLists, newList],
+      activeListId: newList.id,
+    }));
+    cascade.initColumns(appState.csvHeaders, appState.csvData, newColumns);
     setShowNameDialog(false);
     setStage('filter');
     autoSubmitLock.current = false;
     setTimeout(() => cascade.resetForNewRow(), 0);
-  }, [pendingListName, setAppState, cascade]);
+  }, [pendingListName, reorderHidden, appState.csvHeaders, appState.csvData, setAppState, cascade]);
+
+  const handleSwitchList = useCallback((id: string) => {
+    if (id === appState.activeListId) return;
+    const target = appState.workLists.find((l) => l.id === id);
+    if (!target) return;
+    setAppState((prev) => ({ ...prev, activeListId: id }));
+    cascade.initColumns(appState.csvHeaders, appState.csvData, target.cascadeColumns);
+    autoSubmitLock.current = false;
+  }, [appState.activeListId, appState.workLists, appState.csvHeaders, appState.csvData, cascade, setAppState]);
 
   const handleConfirmSelection = useCallback(
     (columnName: string, values: string[]) => {
@@ -203,6 +244,7 @@ function App() {
   React.useEffect(() => {
     if (stage !== 'filter') return;
     if (autoSubmitLock.current) return;
+    if (!appState.activeListId) return;
     if (!allColumnsFilled(cascade.columns)) return;
     if (cascade.columns.every((c) => c.selectedValues.length === 0)) return;
 
@@ -221,13 +263,17 @@ function App() {
     const hasMultiSelect = cascade.columns.some((c) => c.multiSelectEnabled && c.selectedValues.length > 1);
 
     setAppState((prev) => {
-      // Verificar duplicatas: comparar valores de cada linha candidata com as já salvas
+      const idx = prev.workLists.findIndex((l) => l.id === prev.activeListId);
+      if (idx === -1) return prev;
+      const list = prev.workLists[idx];
+
+      // Verificar duplicatas: comparar valores de cada linha candidata com as já salvas NESTA lista
       const newRows: SavedRow[] = [];
       const skipped: number[] = [];
 
       for (let i = 0; i < matchedRows.length; i++) {
         const candidate = matchedRows[i];
-        const isDuplicate = prev.savedRows.some((existing) =>
+        const isDuplicate = list.savedRows.some((existing) =>
           shallowEqual(existing.values, candidate),
         );
 
@@ -256,11 +302,13 @@ function App() {
         toast.info(`${skipped.length} duplicata(s) ignorada(s).`, { duration: 3000 });
       }
 
-      return {
-        ...prev,
-        savedRows: [...prev.savedRows, ...newRows],
-        partialSelection: null,
+      const nextLists = [...prev.workLists];
+      nextLists[idx] = {
+        ...list,
+        savedRows: [...list.savedRows, ...newRows],
+        updatedAt: new Date().toISOString(),
       };
+      return { ...prev, workLists: nextLists };
     });
 
     // Delay para o usuário ver o feedback antes do reset
@@ -268,13 +316,14 @@ function App() {
       autoSubmitLock.current = false;
       cascade.resetForNewRow();
     }, 400);
-  }, [cascade.columns, stage]);
+  }, [cascade.columns, stage, appState.activeListId]);
 
   const handleReset = useCallback(() => {
     resetState();
     cascade.initColumns([], []);
     autoSubmitLock.current = false;
-    comingFromFilter.current = false;
+    cascadeInitialized.current = false;
+    reorderOrigin.current = 'import';
     setReorderHidden(new Set());
     setStage('import');
     toast.info('Sessão resetada.');
@@ -282,10 +331,16 @@ function App() {
 
   const handleDeleteRow = useCallback(
     (id: string) => {
-      setAppState((prev) => ({
-        ...prev,
-        savedRows: prev.savedRows.filter((r) => r.id !== id),
-      }));
+      setAppState((prev) => {
+        const idx = prev.workLists.findIndex((l) => l.id === prev.activeListId);
+        if (idx === -1) return prev;
+        const nextLists = [...prev.workLists];
+        nextLists[idx] = {
+          ...nextLists[idx],
+          savedRows: nextLists[idx].savedRows.filter((r) => r.id !== id),
+        };
+        return { ...prev, workLists: nextLists };
+      });
       toast.success('Linha removida.');
     },
     [setAppState],
@@ -293,8 +348,9 @@ function App() {
 
   const handleExport = useCallback(
     (format: ExportFormat) => {
+      if (!activeList) return;
       const headers = appState.csvHeaders;
-      const rows = appState.savedRows;
+      const rows = activeList.savedRows;
       switch (format) {
         case 'csv':
           exportAsCsv(headers, rows);
@@ -308,51 +364,66 @@ function App() {
       }
       toast.success(`Arquivo ${format.toUpperCase()} baixado.`);
     },
-    [appState.csvHeaders, appState.savedRows],
+    [appState.csvHeaders, activeList],
   );
 
+  // "Limpar tabela" encerra a lista: arquiva as linhas no histórico (se houver)
+  // e remove a lista do seletor. Troca para outra lista aberta, ou volta para
+  // a tela de Reordenar (para começar uma nova) se não sobrar nenhuma.
   const handleClearAllRows = useCallback(() => {
-    setAppState((prev) => {
-      if (prev.savedRows.length === 0) return prev;
+    if (!activeList) return;
+    const closingId = activeList.id;
+    const remaining = appState.workLists.filter((l) => l.id !== closingId);
 
-      const name = prev.currentListName || 'Sem nome';
+    setAppState((prev) => {
+      const list = prev.workLists.find((l) => l.id === closingId);
+      if (!list) return prev;
+
+      const nextLists = prev.workLists.filter((l) => l.id !== closingId);
+      const nextActiveId = nextLists.length > 0 ? nextLists[0].id : null;
+      const nextState = { ...prev, workLists: nextLists, activeListId: nextActiveId };
+
+      if (list.savedRows.length === 0) return nextState;
 
       const entry: TableHistory = {
         id: crypto.randomUUID(),
-        name,
-        rows: prev.savedRows,
+        name: list.name,
+        rows: list.savedRows,
         createdAt: new Date().toISOString(),
-        rowCount: prev.savedRows.length,
+        rowCount: list.savedRows.length,
       };
-
-      return {
-        ...prev,
-        savedRows: [],
-        currentListName: '',
-        tableHistory: [...prev.tableHistory, entry],
-        partialSelection: null,
-      };
+      return { ...nextState, tableHistory: [...prev.tableHistory, entry] };
     });
-    toast.success('Tabela limpa. Dados movidos para o histórico.');
-  }, [setAppState]);
+
+    if (remaining.length > 0) {
+      cascade.initColumns(appState.csvHeaders, appState.csvData, remaining[0].cascadeColumns);
+      setStage('filter');
+    } else {
+      cascade.initColumns(appState.csvHeaders, appState.csvData);
+      dragDrop.resetItems(appState.csvHeaders);
+      setReorderHidden(new Set());
+      reorderOrigin.current = 'new-list';
+      setStage('reorder');
+    }
+    autoSubmitLock.current = false;
+    toast.success('Lista encerrada. Dados movidos para o histórico.');
+  }, [setAppState, activeList, appState.workLists, appState.csvHeaders, appState.csvData, cascade, dragDrop]);
 
   const handleBackToFilters = useCallback(() => {
-    if (!appState.currentListName) {
-      const defaultName = `Lista ${appState.tableHistory.length + 1}`;
-      setPendingListName(defaultName);
-      setShowNameDialog(true);
-    } else {
-      setStage('filter');
-    }
-  }, [appState.currentListName, appState.tableHistory.length]);
+    setStage('filter');
+  }, []);
 
   const handleRestoreHistory = useCallback((id: string) => {
     setAppState((prev) => {
       const entry = prev.tableHistory.find((e) => e.id === id);
       if (!entry) return prev;
+      const idx = prev.workLists.findIndex((l) => l.id === prev.activeListId);
+      if (idx === -1) return prev;
+      const nextLists = [...prev.workLists];
+      nextLists[idx] = { ...nextLists[idx], savedRows: entry.rows };
       return {
         ...prev,
-        savedRows: entry.rows,
+        workLists: nextLists,
         tableHistory: prev.tableHistory.filter((e) => e.id !== id),
       };
     });
@@ -364,9 +435,12 @@ function App() {
     setAppState((prev) => {
       const entry = prev.tableHistory.find((e) => e.id === id);
       if (!entry) return prev;
+      const idx = prev.workLists.findIndex((l) => l.id === prev.activeListId);
+      if (idx === -1) return prev;
+      const list = prev.workLists[idx];
 
       const existingValues = new Set(
-        prev.savedRows.map((r) => JSON.stringify(r.values)),
+        list.savedRows.map((r) => JSON.stringify(r.values)),
       );
       const newRows = entry.rows.filter(
         (r) => !existingValues.has(JSON.stringify(r.values)),
@@ -380,9 +454,12 @@ function App() {
         };
       }
 
+      const nextLists = [...prev.workLists];
+      nextLists[idx] = { ...list, savedRows: [...list.savedRows, ...newRows] };
+
       return {
         ...prev,
-        savedRows: [...prev.savedRows, ...newRows],
+        workLists: nextLists,
         tableHistory: prev.tableHistory.filter((e) => e.id !== id),
       };
     });
@@ -407,13 +484,14 @@ function App() {
   }, [setAppState]);
 
   const handleCopy = useCallback(async () => {
-    const ok = await copyTsvToClipboard(appState.csvHeaders, appState.savedRows);
+    if (!activeList) return;
+    const ok = await copyTsvToClipboard(appState.csvHeaders, activeList.savedRows);
     if (ok) {
       toast.success('TSV copiado para a área de transferência.');
     } else {
       toast.error('Falha ao copiar.');
     }
-  }, [appState.csvHeaders, appState.savedRows]);
+  }, [appState.csvHeaders, activeList]);
 
   // --- Render ---
 
@@ -430,14 +508,14 @@ function App() {
               {stage === 'import' && 'Importe um arquivo CSV para começar'}
               {stage === 'reorder' && 'Defina a ordem dos filtros'}
               {stage === 'filter' && 'Preencha os filtros sequencialmente'}
-              {stage === 'review' && `${appState.savedRows.length} linhas na tabela final`}
+              {stage === 'review' && `${activeList?.savedRows.length ?? 0} linhas na tabela final`}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            {appState.currentListName && (stage === 'filter' || stage === 'review') && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium truncate max-w-[200px]" title={appState.currentListName}>
-                {appState.currentListName}
+            {activeList && (stage === 'filter' || stage === 'review') && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium truncate max-w-[200px]" title={activeList.name}>
+                {activeList.name}
               </span>
             )}
             <span className="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
@@ -459,7 +537,8 @@ function App() {
             <DialogHeader>
               <DialogTitle>Nome da lista</DialogTitle>
               <DialogDescription>
-                Dê um nome para esta lista de filtros. Ele será usado ao salvar no histórico.
+                Dê um nome para esta lista de filtros. Você poderá alternar entre esta e outras
+                listas a qualquer momento na tela de filtros.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
@@ -504,7 +583,7 @@ function App() {
             onContinue={() => handleReorderContinue(dragDrop.items)}
             onMoveItem={dragDrop.moveItem}
             onToggleVisibility={handleToggleVisibility}
-            onBack={comingFromFilter.current ? handleCancelReorder : undefined}
+            onBack={reorderOrigin.current !== 'import' ? handleCancelReorder : undefined}
           />
         )}
 
@@ -521,14 +600,18 @@ function App() {
             onResetCascade={handleReset}
             onGoToReview={() => setStage('review')}
             onBackToReorder={handleBackToReorder}
-            totalSavedRows={appState.savedRows.length}
+            totalSavedRows={activeList?.savedRows.length ?? 0}
+            lists={appState.workLists.map((l) => ({ id: l.id, name: l.name, rowCount: l.savedRows.length }))}
+            activeListId={appState.activeListId}
+            onSwitchList={handleSwitchList}
+            onNewList={handleStartNewList}
           />
         )}
 
         {stage === 'review' && (
           <FinalTable
             headers={appState.csvHeaders}
-            rows={appState.savedRows}
+            rows={activeList?.savedRows ?? []}
             historyCount={appState.tableHistory.length}
             onBack={handleBackToFilters}
             onDelete={handleDeleteRow}
@@ -543,7 +626,7 @@ function App() {
           open={historyDialogOpen}
           onOpenChange={setHistoryDialogOpen}
           history={appState.tableHistory}
-          currentRowCount={appState.savedRows.length}
+          currentRowCount={activeList?.savedRows.length ?? 0}
           onRestore={handleRestoreHistory}
           onMerge={handleMergeHistory}
           onDeleteEntry={handleDeleteHistoryEntry}

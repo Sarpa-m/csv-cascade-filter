@@ -47,16 +47,28 @@ export interface TableHistory {
   rowCount: number; // desnormalizado para exibição rápida
 }
 
+/**
+ * Uma lista de trabalho: uma cascata de filtros independente, com sua própria
+ * ordem/travamentos/seleções e suas próprias linhas salvas. Várias listas podem
+ * coexistir para o mesmo CSV — o usuário alterna entre elas na tela de filtros.
+ */
+export interface WorkList {
+  id: string;
+  name: string;
+  cascadeColumns: CascadeColumn[];
+  savedRows: SavedRow[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Estado completo da aplicação (persistido em localStorage) */
 export interface AppState {
   csvHeaders: string[];
   csvData: CsvRow[];
-  cascadeColumns: CascadeColumn[];
-  savedRows: SavedRow[];
+  workLists: WorkList[];
+  /** Lista atualmente sendo editada na tela de filtros */
+  activeListId: string | null;
   tableHistory: TableHistory[];
-  currentListName: string;
-  /** Colunas atualmente sendo preenchidas (cascata parcial não finalizada) */
-  partialSelection: CascadeColumn[] | null;
 }
 
 /** Possíveis estágios da aplicação */

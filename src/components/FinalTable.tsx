@@ -68,15 +68,13 @@ export const FinalTable: React.FC<FinalTableProps> = ({
               </span>
             )}
           </Button>
-          {rows.length > 0 && (
-            <Button
-              variant="outline" size="sm"
-              onClick={() => setShowClearDialog(true)}
-              className="transition-all duration-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 hover:border-red-300"
-            >
-              <Eraser className="w-4 h-4 mr-1" />Limpar tabela
-            </Button>
-          )}
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setShowClearDialog(true)}
+            className="transition-all duration-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 hover:border-red-300"
+          >
+            <Eraser className="w-4 h-4 mr-1" />Encerrar lista
+          </Button>
         </div>
       </div>
 
@@ -153,17 +151,19 @@ export const FinalTable: React.FC<FinalTableProps> = ({
       <Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Limpar tabela?</DialogTitle>
+            <DialogTitle>Encerrar esta lista?</DialogTitle>
             <DialogDescription>
-              Todas as {rows.length} linha(s) serão movidas para o histórico.
-              Você poderá restaurá-las depois pelo botão "Histórico".
-              O CSV importado, a ordem da cascata e os travamentos serão preservados.
+              {rows.length > 0
+                ? `As ${rows.length} linha(s) serão movidas para o histórico. Você poderá restaurá-las depois pelo botão "Histórico". `
+                : ''}
+              A lista some do seletor de listas — se houver outra lista aberta, você continua nela;
+              caso contrário, volta para a tela de reordenação para começar uma nova.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowClearDialog(false)}>Cancelar</Button>
             <Button variant="destructive" onClick={() => { onClearAll(); setShowClearDialog(false); }}>
-              Limpar {rows.length} linha(s)
+              Encerrar lista
             </Button>
           </DialogFooter>
         </DialogContent>
