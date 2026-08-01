@@ -1,6 +1,6 @@
 # Filtro CSV em Cascata
 
-![Version](https://img.shields.io/badge/vers%C3%A3o-v1.4.3-blue)
+![Version](https://img.shields.io/badge/vers%C3%A3o-v1.4.4-blue)
 
 Aplicação React auto-contida para filtro sequencial de dados CSV. Roda direto no navegador — **sem servidor, sem backend, sem instalação**.
 
