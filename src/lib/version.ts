@@ -1,5 +1,5 @@
 /** Versão atual da aplicação — atualizar manualmente a cada release */
-export const APP_VERSION = '1.4.4';
+export const APP_VERSION = '1.5.0';
 
 /** URL da API do GitHub para consultar a última release */
 const GITHUB_API_URL = 'https://api.github.com/repos/Sarpa-m/csv-cascade-filter/releases/latest';
